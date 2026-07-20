@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="media/puller_logo.jpg" alt="Puller Logo" width="250" />
+  <img src="media/puller_logo.jpg" alt="Puller Logo" width="540" />
 </div>
 
 # Puller — a yt-dlp powered YouTube downloader
