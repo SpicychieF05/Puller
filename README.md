@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="media/puller_logo.jpg" alt="Puller Logo" width="250" />
+</div>
+
 # Puller — a yt-dlp powered YouTube downloader
 
 A tiny local web app: paste a YouTube URL, pick video or audio, pick a
