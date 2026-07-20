@@ -253,6 +253,21 @@ def download_file(job_id: str):
     )
 
 
+@app.post("/api/reset")
+def reset_state():
+    with JOBS_LOCK:
+        for job_id, job in JOBS.items():
+            filepath = job.get("filepath")
+            if filepath:
+                Path(filepath).unlink(missing_ok=True)
+        JOBS.clear()
+        
+        for p in DOWNLOAD_DIR.iterdir():
+            if p.is_file():
+                p.unlink(missing_ok=True)
+    return {"status": "ok"}
+
+
 # Serve the media files
 app.mount("/media", StaticFiles(directory=Path(__file__).parent / "media"), name="media")
 

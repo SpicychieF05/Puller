@@ -90,10 +90,8 @@
 
     .field-row {
       margin-top: 15px;
-    }
-
-    #filenameInput {
-      width: 100%;
+      display: flex;
+      gap: 10px;
     }
 
     input[type=text] {
@@ -146,6 +144,19 @@
 
     .btn-primary:hover:not(:disabled) {
       filter: brightness(1.08);
+    }
+
+    .btn-secondary {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      color: var(--text);
+      padding: 12px 20px;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      border-color: #3A414C;
+      background: #232832;
     }
 
     .status {
@@ -344,6 +355,7 @@
       </div>
       <div class="field-row">
         <input type="text" id="filenameInput" placeholder="Optional filename (leave blank to use the title)" />
+        <button class="btn-secondary" id="resetBtn">Reset</button>
       </div>
       <div class="status" id="fetchStatus"></div>
     </div>
@@ -396,6 +408,7 @@
     const qualityLabel = document.getElementById("qualityLabel");
     const downloadBtn = document.getElementById("downloadBtn");
     const downloadStatus = document.getElementById("downloadStatus");
+    const resetBtn = document.getElementById("resetBtn");
 
     function fmtDuration(sec) {
       if (!sec) return "--:--";
@@ -578,6 +591,25 @@
     document.getElementById("modeVideoBtn").onclick = () => setMode("video");
     document.getElementById("modeAudioBtn").onclick = () => setMode("audio");
     downloadBtn.onclick = doDownload;
+
+    resetBtn.onclick = async () => {
+      urlInput.value = "";
+      filenameInput.value = "";
+      fetchStatus.textContent = "";
+      fetchStatus.className = "status";
+      downloadStatus.textContent = "";
+      downloadStatus.className = "status";
+      resultCard.style.display = "none";
+      currentInfo = null;
+      selectedQuality = null;
+      downloadBtn.disabled = true;
+
+      try {
+        await fetch(`${API}/api/reset`, { method: "POST" });
+      } catch (e) {
+        console.error("Reset backend failed", e);
+      }
+    };
   </script>
 </body>
 
