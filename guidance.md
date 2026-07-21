@@ -8,8 +8,8 @@
 | `static/index.html` | Present. |
 | `requirements.txt` | Present. `fastapi`, `uvicorn[standard]`, and `yt-dlp` all listed. |
 | `.venv/` | Present. Virtual environment folder is named `.venv` (not `venv`). |
-| `setup.bat` | **Missing — created.** |
-| `run.bat` | **Missing — created.** |
+| `setup.bat` | present. |
+| `run.bat` | present. |
 | `setup.sh` / `run.sh` | Not present. |
 | `reset.bat` / `reset.sh` | Not present. |
 | Host / port | No hardcoded runner in `main.py`. App binds to `127.0.0.1:8000` via the CLI argument in `run.bat`. |
