@@ -70,6 +70,7 @@ def initial_job_state() -> dict:
         "error": None,
         "eta": None,
         "completed_at": None,
+        "cancel_event": threading.Event(),
     }
 
 
@@ -78,7 +79,7 @@ def cleanup_stale_jobs() -> None:
     with JOBS_LOCK:
         stale_ids = []
         for job_id, job in JOBS.items():
-            if job.get("status") not in ("finished", "error"):
+            if job.get("status") not in ("finished", "error", "cancelled"):
                 continue
             completed_at = job.get("completed_at")
             if completed_at and now - completed_at > JOB_TTL_SECONDS:
@@ -127,11 +128,11 @@ def build_download_opts(req: DownloadRequest, job_id: str) -> dict:
 
 def run_download_job(job_id: str, req: DownloadRequest) -> None:
     def progress_hook(d: dict) -> None:
-        if d.get("status") != "downloading":
-            return
         with JOBS_LOCK:
             job = JOBS.get(job_id)
-            if job:
+            if job and job["cancel_event"].is_set():
+                raise yt_dlp.utils.DownloadError("Cancelled by user")
+            if d.get("status") == "downloading" and job:
                 job["eta"] = d.get("eta")
 
     try:
@@ -141,6 +142,26 @@ def run_download_job(job_id: str, req: DownloadRequest) -> None:
             info = ydl.extract_info(req.url, download=True)
             filepath = Path(ydl.prepare_filename(info))
             filepath = filepath.with_suffix(".mp3" if req.mode == "audio" else ".mp4")
+    except yt_dlp.utils.DownloadError as e:
+        with JOBS_LOCK:
+            job = JOBS.get(job_id)
+            if job:
+                if job["cancel_event"].is_set():
+                    job.update({
+                        "status": "cancelled",
+                        "error": None,
+                        "completed_at": time.time(),
+                    })
+                else:
+                    job.update({
+                        "status": "error",
+                        "error": str(e),
+                        "completed_at": time.time(),
+                    })
+        if job and job["cancel_event"].is_set():
+            for p in DOWNLOAD_DIR.glob(f"{job_id}*"):
+                p.unlink(missing_ok=True)
+        return
     except Exception as e:
         with JOBS_LOCK:
             job = JOBS.get(job_id)
@@ -235,6 +256,16 @@ def start_download(req: DownloadRequest):
     return {"job_id": job_id}
 
 
+@app.post("/api/download/cancel/{job_id}")
+def cancel_download(job_id: str):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Unknown job.")
+        job["cancel_event"].set()
+    return {"status": "cancelling"}
+
+
 @app.get("/api/download/status/{job_id}")
 def download_status(job_id: str):
     with JOBS_LOCK:
@@ -253,6 +284,8 @@ def download_file(job_id: str):
         job = JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Unknown job id.")
+        if job.get("status") == "cancelled":
+            raise HTTPException(status_code=410, detail="Download cancelled.")
         if job.get("status") != "finished":
             raise HTTPException(status_code=409, detail="Job is not finished yet.")
         filepath = job.get("filepath")

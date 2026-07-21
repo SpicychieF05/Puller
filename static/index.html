@@ -459,6 +459,7 @@
 
       <div class="download-row">
         <button class="btn-primary" id="downloadBtn" disabled>Download</button>
+        <button class="btn-secondary" id="cancelBtn" style="display:none; margin-left: 10px;">Cancel</button>
       </div>
 
       <div class="status" id="downloadStatus">
@@ -488,6 +489,7 @@
     let currentInfo = null;
     let mode = "video";
     let selectedQuality = null;
+    let currentJobId = null;
 
     const urlInput      = document.getElementById("urlInput");
     const filenameInput = document.getElementById("filenameInput");
@@ -497,6 +499,7 @@
     const qualityGrid   = document.getElementById("qualityGrid");
     const qualityLabel  = document.getElementById("qualityLabel");
     const downloadBtn   = document.getElementById("downloadBtn");
+    const cancelBtn     = document.getElementById("cancelBtn");
     const downloadStatus = document.getElementById("downloadStatus");
     const resetBtn      = document.getElementById("resetBtn");
 
@@ -741,6 +744,10 @@
         const { job_id: jobId } = await startRes.json();
         if (!jobId) throw new Error("Download failed: missing job id.");
 
+        currentJobId = jobId;
+        cancelBtn.style.display = "inline-block";
+        cancelBtn.disabled = false;
+
         const ac = new AbortController();
         pollStatus(jobId, ac.signal);
 
@@ -748,6 +755,8 @@
           await fetchFinishedFile(jobId);
         } finally {
           ac.abort();
+          cancelBtn.style.display = "none";
+          currentJobId = null;
         }
 
         downloadStatus.className = "status ok";
@@ -755,9 +764,15 @@
         dlText.textContent = "Done — check your downloads folder.";
         return;
       } catch (e) {
-        downloadStatus.className = "status err";
-        iconError();
-        dlText.textContent = e.message || "Download failed.";
+        if (e.message === "Download cancelled.") {
+          downloadStatus.className = "status";
+          iconNone();
+          dlText.textContent = "Download cancelled.";
+        } else {
+          downloadStatus.className = "status err";
+          iconError();
+          dlText.textContent = e.message || "Download failed.";
+        }
       } finally {
         downloadBtn.disabled = false;
       }
@@ -768,6 +783,16 @@
     document.getElementById("modeVideoBtn").onclick = () => setMode("video");
     document.getElementById("modeAudioBtn").onclick = () => setMode("audio");
     downloadBtn.onclick = doDownload;
+
+    cancelBtn.onclick = async () => {
+      if (!currentJobId) return;
+      cancelBtn.disabled = true;
+      try {
+        await fetch(`${API}/api/download/cancel/${currentJobId}`, { method: "POST" });
+      } catch (e) {
+        cancelBtn.disabled = false;
+      }
+    };
 
     resetBtn.onclick = async () => {
       urlInput.value = "";
