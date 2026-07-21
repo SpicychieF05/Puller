@@ -10,8 +10,8 @@
 | `.venv/` | Present. Virtual environment folder is named `.venv` (not `venv`). |
 | `setup.bat` | present. |
 | `run.bat` | present. |
-| `setup.sh` / `run.sh` | Not present. |
-| `reset.bat` / `reset.sh` | Not present. |
+| `setup.sh` / `run.sh` | present. |
+| `reset.bat` / `reset.sh` | present. |
 | Host / port | No hardcoded runner in `main.py`. App binds to `127.0.0.1:8000` via the CLI argument in `run.bat`. |
 | ffmpeg validation | Not validated anywhere in the project. `run.bat` warns if it is absent. |
 
