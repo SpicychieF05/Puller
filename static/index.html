@@ -21,6 +21,7 @@
       --amber: #F5A623;
       --amber-dim: #4A3416;
       --green: #7CFC8A;
+      --err: #F26B6B;
       --radius: 10px;
     }
 
@@ -168,11 +169,82 @@
     }
 
     .status.err {
-      color: #F26B6B;
+      color: var(--err);
     }
 
     .status.ok {
       color: var(--green);
+    }
+
+    /* Download status row */
+    #downloadStatus {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      text-align: right;
+    }
+
+    /* Status icon container */
+    .dl-icon {
+      display: none;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .dl-icon.visible {
+      display: block;
+    }
+
+    /* Spinner ring */
+    .spinner-ring {
+      fill: none;
+      stroke: var(--amber);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 44 56;
+      transform-origin: 50% 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Checkmark path */
+    .check-bg {
+      fill: none;
+      stroke: var(--green);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 22;
+      stroke-dashoffset: 22;
+      transition: stroke-dashoffset 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .check-bg.drawn {
+      stroke-dashoffset: 0;
+    }
+
+    /* Error X */
+    .err-line {
+      stroke: var(--err);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+    }
+
+    /* ETA label beside spinner */
+    #etaLabel {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      color: var(--muted);
+      display: none;
+    }
+
+    #etaLabel.visible {
+      display: inline;
     }
 
     #resultCard {
@@ -333,10 +405,15 @@
     @media (prefers-reduced-motion: reduce) {
       * {
         transition: none !important;
+        animation: none !important;
       }
 
-      .progress-fill.indeterminate {
-        animation: none !important;
+      .spinner-ring {
+        stroke-dasharray: 100 0;
+      }
+
+      .check-bg {
+        stroke-dashoffset: 0 !important;
       }
     }
   </style>
@@ -383,7 +460,20 @@
       <div class="download-row">
         <button class="btn-primary" id="downloadBtn" disabled>Download</button>
       </div>
-      <div class="status" id="downloadStatus" style="text-align:right;"></div>
+
+      <div class="status" id="downloadStatus">
+        <svg class="dl-icon" id="dlIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <!-- spinner state -->
+          <circle class="spinner-ring" id="spinnerRing" cx="12" cy="12" r="9" />
+          <!-- checkmark state -->
+          <path class="check-bg" id="checkPath" d="M5.5 12.5l4.5 4.5 8.5-9" />
+          <!-- error X state -->
+          <line class="err-line" id="errLine1" x1="7" y1="7" x2="17" y2="17" />
+          <line class="err-line" id="errLine2" x1="17" y1="7" x2="7" y2="17" />
+        </svg>
+        <span id="etaLabel"></span>
+        <span id="dlText"></span>
+      </div>
     </div>
 
     <footer>
@@ -394,21 +484,81 @@
   </div>
 
   <script>
-    const API = ""; // same origin
+    const API = "";
     let currentInfo = null;
     let mode = "video";
     let selectedQuality = null;
 
-    const urlInput = document.getElementById("urlInput");
+    const urlInput      = document.getElementById("urlInput");
     const filenameInput = document.getElementById("filenameInput");
-    const fetchBtn = document.getElementById("fetchBtn");
-    const fetchStatus = document.getElementById("fetchStatus");
-    const resultCard = document.getElementById("resultCard");
-    const qualityGrid = document.getElementById("qualityGrid");
-    const qualityLabel = document.getElementById("qualityLabel");
-    const downloadBtn = document.getElementById("downloadBtn");
+    const fetchBtn      = document.getElementById("fetchBtn");
+    const fetchStatus   = document.getElementById("fetchStatus");
+    const resultCard    = document.getElementById("resultCard");
+    const qualityGrid   = document.getElementById("qualityGrid");
+    const qualityLabel  = document.getElementById("qualityLabel");
+    const downloadBtn   = document.getElementById("downloadBtn");
     const downloadStatus = document.getElementById("downloadStatus");
-    const resetBtn = document.getElementById("resetBtn");
+    const resetBtn      = document.getElementById("resetBtn");
+
+    const dlIcon      = document.getElementById("dlIcon");
+    const spinnerRing = document.getElementById("spinnerRing");
+    const checkPath   = document.getElementById("checkPath");
+    const errLine1    = document.getElementById("errLine1");
+    const errLine2    = document.getElementById("errLine2");
+    const etaLabel    = document.getElementById("etaLabel");
+    const dlText      = document.getElementById("dlText");
+
+    // --- status icon helpers ---
+
+    function iconNone() {
+      dlIcon.classList.remove("visible");
+      spinnerRing.style.display = "";
+      checkPath.style.display   = "none";
+      errLine1.style.display    = "none";
+      errLine2.style.display    = "none";
+      checkPath.classList.remove("drawn");
+      etaLabel.classList.remove("visible");
+      etaLabel.textContent = "";
+    }
+
+    function iconSpinning(eta) {
+      dlIcon.classList.add("visible");
+      spinnerRing.style.display = "";
+      checkPath.style.display   = "none";
+      errLine1.style.display    = "none";
+      errLine2.style.display    = "none";
+
+      if (typeof eta === "number" && eta > 0) {
+        etaLabel.textContent = `${Math.round(eta)}s remaining`;
+        etaLabel.classList.add("visible");
+      } else {
+        etaLabel.classList.remove("visible");
+        etaLabel.textContent = "";
+      }
+    }
+
+    function iconDone() {
+      dlIcon.classList.add("visible");
+      spinnerRing.style.display = "none";
+      checkPath.style.display   = "";
+      errLine1.style.display    = "none";
+      errLine2.style.display    = "none";
+      etaLabel.classList.remove("visible");
+      // trigger stroke-draw animation on next frame
+      requestAnimationFrame(() => checkPath.classList.add("drawn"));
+    }
+
+    function iconError() {
+      dlIcon.classList.add("visible");
+      spinnerRing.style.display = "none";
+      checkPath.style.display   = "none";
+      errLine1.style.display    = "";
+      errLine2.style.display    = "";
+      checkPath.classList.remove("drawn");
+      etaLabel.classList.remove("visible");
+    }
+
+    // ---
 
     function fmtDuration(sec) {
       if (!sec) return "--:--";
@@ -426,7 +576,11 @@
 
     async function fetchInfo() {
       const url = urlInput.value.trim();
-      if (!url) { fetchStatus.textContent = "Paste a YouTube URL first."; fetchStatus.className = "status err"; return; }
+      if (!url) {
+        fetchStatus.textContent = "Paste a YouTube URL first.";
+        fetchStatus.className = "status err";
+        return;
+      }
 
       fetchBtn.disabled = true;
       fetchStatus.className = "status";
@@ -512,6 +666,19 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    async function pollStatus(jobId, signal) {
+      while (!signal.aborted) {
+        try {
+          const res = await fetch(`${API}/api/download/status/${jobId}`);
+          if (res.ok) {
+            const { eta } = await res.json();
+            iconSpinning(eta);
+          }
+        } catch {}
+        await delay(800);
+      }
+    }
+
     async function waitForFinishedFile(jobId) {
       while (true) {
         const res = await fetch(`${API}/api/download/file/${jobId}`);
@@ -550,7 +717,9 @@
       if (!selectedQuality) return;
       downloadBtn.disabled = true;
       downloadStatus.className = "status";
-      downloadStatus.textContent = "Preparing download...";
+
+      iconSpinning();
+      dlText.textContent = "Preparing download...";
 
       try {
         const startRes = await fetch(`${API}/api/download/start`, {
@@ -569,18 +738,26 @@
           throw new Error(data.detail || "Download failed.");
         }
 
-        const startData = await startRes.json();
-        const jobId = startData.job_id;
+        const { job_id: jobId } = await startRes.json();
         if (!jobId) throw new Error("Download failed: missing job id.");
 
-        await fetchFinishedFile(jobId);
-        downloadStatus.className = "status ok";
-        downloadStatus.textContent = "Done — check your downloads folder.";
+        const ac = new AbortController();
+        pollStatus(jobId, ac.signal);
 
+        try {
+          await fetchFinishedFile(jobId);
+        } finally {
+          ac.abort();
+        }
+
+        downloadStatus.className = "status ok";
+        iconDone();
+        dlText.textContent = "Done — check your downloads folder.";
         return;
       } catch (e) {
         downloadStatus.className = "status err";
-        downloadStatus.textContent = e.message || "Download failed.";
+        iconError();
+        dlText.textContent = e.message || "Download failed.";
       } finally {
         downloadBtn.disabled = false;
       }
@@ -597,7 +774,8 @@
       filenameInput.value = "";
       fetchStatus.textContent = "";
       fetchStatus.className = "status";
-      downloadStatus.textContent = "";
+      iconNone();
+      dlText.textContent = "";
       downloadStatus.className = "status";
       resultCard.style.display = "none";
       currentInfo = null;

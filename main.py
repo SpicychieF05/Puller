@@ -64,10 +64,11 @@ def requested_filename_base(name: str) -> str:
 
 def initial_job_state() -> dict:
     return {
-        "status": "starting",   # starting | finished | error
+        "status": "starting",
         "filepath": None,
         "filename": None,
         "error": None,
+        "eta": None,
         "completed_at": None,
     }
 
@@ -125,8 +126,17 @@ def build_download_opts(req: DownloadRequest, job_id: str) -> dict:
 
 
 def run_download_job(job_id: str, req: DownloadRequest) -> None:
+    def progress_hook(d: dict) -> None:
+        if d.get("status") != "downloading":
+            return
+        with JOBS_LOCK:
+            job = JOBS.get(job_id)
+            if job:
+                job["eta"] = d.get("eta")
+
     try:
         opts = build_download_opts(req, job_id)
+        opts["progress_hooks"] = [progress_hook]
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(req.url, download=True)
             filepath = Path(ydl.prepare_filename(info))
@@ -223,6 +233,18 @@ def start_download(req: DownloadRequest):
     thread = threading.Thread(target=run_download_job, args=(job_id, req), daemon=True)
     thread.start()
     return {"job_id": job_id}
+
+
+@app.get("/api/download/status/{job_id}")
+def download_status(job_id: str):
+    with JOBS_LOCK:
+        job = JOBS.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="Unknown job id.")
+        return {
+            "status": job.get("status"),
+            "eta": job.get("eta"),
+        }
 
 
 @app.get("/api/download/file/{job_id}")

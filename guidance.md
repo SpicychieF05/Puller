@@ -67,6 +67,7 @@ The server likely failed to start. Check the terminal window for a Python traceb
 
 **ffmpeg warning shown at startup**
 Video and audio downloads will silently fail without ffmpeg on PATH.
+
 - Install via winget: `winget install ffmpeg`
 - Or download manually: https://ffmpeg.org/download.html
 
