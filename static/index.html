@@ -1,3 +1,4 @@
+<!-- PATH: static/index.html -->
 <!DOCTYPE html>
 <html lang="en">
 
@@ -84,15 +85,14 @@
       padding: 20px;
     }
 
-    .url-row {
+    .url-row,
+    .field-row {
       display: flex;
       gap: 10px;
     }
 
     .field-row {
       margin-top: 15px;
-      display: flex;
-      gap: 10px;
     }
 
     input[type=text] {
@@ -176,16 +176,17 @@
       color: var(--green);
     }
 
-    /* Download status row */
-    #downloadStatus {
+    /* Download status formatting */
+    .dl-status-container {
       display: flex;
-      align-items: center;
       justify-content: flex-end;
+      align-items: center;
       gap: 8px;
       text-align: right;
+      min-height: 18px;
+      margin-top: 14px;
     }
 
-    /* Status icon container */
     .dl-icon {
       display: none;
       width: 18px;
@@ -197,7 +198,6 @@
       display: block;
     }
 
-    /* Spinner ring */
     .spinner-ring {
       fill: none;
       stroke: var(--amber);
@@ -209,10 +209,11 @@
     }
 
     @keyframes spin {
-      to { transform: rotate(360deg); }
+      to {
+        transform: rotate(360deg);
+      }
     }
 
-    /* Checkmark path */
     .check-bg {
       fill: none;
       stroke: var(--green);
@@ -228,23 +229,28 @@
       stroke-dashoffset: 0;
     }
 
-    /* Error X */
     .err-line {
       stroke: var(--err);
       stroke-width: 2.5;
       stroke-linecap: round;
     }
 
-    /* ETA label beside spinner */
-    #etaLabel {
+    .eta-label {
       font-family: 'JetBrains Mono', monospace;
       font-size: 12.5px;
       color: var(--muted);
       display: none;
     }
 
-    #etaLabel.visible {
+    .eta-label.visible {
       display: inline;
+    }
+
+    .dl-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
     }
 
     #resultCard {
@@ -273,6 +279,10 @@
 
     .video-meta {
       min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     .video-title {
@@ -382,6 +392,106 @@
       font-size: 14.5px;
     }
 
+    /* Playlist Rows Styling */
+    .playlist-items {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel-2);
+      margin-bottom: 20px;
+    }
+
+    .playlist-items::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .playlist-items::-webkit-scrollbar-track {
+      background: var(--panel-2);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    .playlist-items::-webkit-scrollbar-thumb {
+      background: #3A414C;
+      border-radius: 4px;
+    }
+
+    .playlist-items::-webkit-scrollbar-thumb:hover {
+      background: #4B5563;
+    }
+
+    .playlist-row {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      border-bottom: 1px solid var(--line);
+      align-items: center;
+    }
+
+    .playlist-row:last-child {
+      border-bottom: none;
+    }
+
+    .row-thumb {
+      width: 80px;
+      height: 45px;
+      object-fit: cover;
+      border-radius: 4px;
+      background: #000;
+      flex-shrink: 0;
+    }
+
+    .row-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .row-title {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 4px;
+    }
+
+    .row-sub {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .row-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      width: 155px;
+    }
+
+    .row-actions-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .row-actions-btns button {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .row-status-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      min-height: 14px;
+      text-align: right;
+    }
+
+    .row-status-line .dl-text {
+      max-width: 115px;
+    }
+
     footer {
       margin-top: 28px;
       color: #555B64;
@@ -438,13 +548,25 @@
     </div>
 
     <div id="resultCard">
-      <div class="video-card">
+      <!-- Single Video Header -->
+      <div id="singleHeader" class="video-card">
         <img class="thumb" id="thumb" src="" alt="" />
         <div class="video-meta">
           <div class="video-title" id="vidTitle"></div>
           <div class="video-sub">
             <span id="vidUploader"></span> &middot;
             <span class="counter" id="vidDuration"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playlist Header -->
+      <div id="playlistHeader" class="video-card" style="display: none;">
+        <div class="video-meta">
+          <div class="video-title" id="plTitle"></div>
+          <div class="video-sub">
+            <span id="plUploader"></span> &middot;
+            <span class="counter" id="plCount"></span>
           </div>
         </div>
       </div>
@@ -457,23 +579,43 @@
       <div class="section-label" id="qualityLabel">Video quality</div>
       <div class="quality-grid" id="qualityGrid"></div>
 
-      <div class="download-row">
-        <button class="btn-primary" id="downloadBtn" disabled>Download</button>
-        <button class="btn-secondary" id="cancelBtn" style="display:none; margin-left: 10px;">Cancel</button>
+      <!-- Single Video Download Controls -->
+      <div id="singleControls">
+        <div class="download-row">
+          <button class="btn-primary" id="downloadBtn" disabled>Download</button>
+          <button class="btn-secondary" id="cancelBtn" style="display:none; margin-left: 10px;">Cancel</button>
+        </div>
+        <div class="status dl-status-container" id="downloadStatus">
+          <svg class="dl-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle class="spinner-ring" cx="12" cy="12" r="9" />
+            <path class="check-bg" d="M5.5 12.5l4.5 4.5 8.5-9" />
+            <line class="err-line" x1="7" y1="7" x2="17" y2="17" />
+            <line class="err-line" x1="17" y1="7" x2="7" y2="17" />
+          </svg>
+          <span class="eta-label"></span>
+          <span class="dl-text"></span>
+        </div>
       </div>
 
-      <div class="status" id="downloadStatus">
-        <svg class="dl-icon" id="dlIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <!-- spinner state -->
-          <circle class="spinner-ring" id="spinnerRing" cx="12" cy="12" r="9" />
-          <!-- checkmark state -->
-          <path class="check-bg" id="checkPath" d="M5.5 12.5l4.5 4.5 8.5-9" />
-          <!-- error X state -->
-          <line class="err-line" id="errLine1" x1="7" y1="7" x2="17" y2="17" />
-          <line class="err-line" id="errLine2" x1="17" y1="7" x2="7" y2="17" />
-        </svg>
-        <span id="etaLabel"></span>
-        <span id="dlText"></span>
+      <!-- Playlist Items & Zip Controls -->
+      <div id="playlistControls" style="display: none;">
+        <div class="section-label">Playlist Items</div>
+        <div class="playlist-items" id="playlistItems"></div>
+
+        <div class="download-row" style="margin-top: 20px;">
+          <button class="btn-primary" id="zipDownloadBtn" disabled>Download all (.zip)</button>
+          <button class="btn-secondary" id="zipCancelBtn" style="display:none; margin-left: 10px;">Cancel</button>
+        </div>
+        <div class="status dl-status-container" id="zipDownloadStatus">
+          <svg class="dl-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle class="spinner-ring" cx="12" cy="12" r="9" />
+            <path class="check-bg" d="M5.5 12.5l4.5 4.5 8.5-9" />
+            <line class="err-line" x1="7" y1="7" x2="17" y2="17" />
+            <line class="err-line" x1="17" y1="7" x2="7" y2="17" />
+          </svg>
+          <span class="eta-label"></span>
+          <span class="dl-text"></span>
+        </div>
       </div>
     </div>
 
@@ -489,79 +631,15 @@
     let currentInfo = null;
     let mode = "video";
     let selectedQuality = null;
-    let currentJobId = null;
 
-    const urlInput      = document.getElementById("urlInput");
+    const urlInput = document.getElementById("urlInput");
     const filenameInput = document.getElementById("filenameInput");
-    const fetchBtn      = document.getElementById("fetchBtn");
-    const fetchStatus   = document.getElementById("fetchStatus");
-    const resultCard    = document.getElementById("resultCard");
-    const qualityGrid   = document.getElementById("qualityGrid");
-    const qualityLabel  = document.getElementById("qualityLabel");
-    const downloadBtn   = document.getElementById("downloadBtn");
-    const cancelBtn     = document.getElementById("cancelBtn");
-    const downloadStatus = document.getElementById("downloadStatus");
-    const resetBtn      = document.getElementById("resetBtn");
-
-    const dlIcon      = document.getElementById("dlIcon");
-    const spinnerRing = document.getElementById("spinnerRing");
-    const checkPath   = document.getElementById("checkPath");
-    const errLine1    = document.getElementById("errLine1");
-    const errLine2    = document.getElementById("errLine2");
-    const etaLabel    = document.getElementById("etaLabel");
-    const dlText      = document.getElementById("dlText");
-
-    // --- status icon helpers ---
-
-    function iconNone() {
-      dlIcon.classList.remove("visible");
-      spinnerRing.style.display = "";
-      checkPath.style.display   = "none";
-      errLine1.style.display    = "none";
-      errLine2.style.display    = "none";
-      checkPath.classList.remove("drawn");
-      etaLabel.classList.remove("visible");
-      etaLabel.textContent = "";
-    }
-
-    function iconSpinning(eta) {
-      dlIcon.classList.add("visible");
-      spinnerRing.style.display = "";
-      checkPath.style.display   = "none";
-      errLine1.style.display    = "none";
-      errLine2.style.display    = "none";
-
-      if (typeof eta === "number" && eta > 0) {
-        etaLabel.textContent = `${Math.round(eta)}s remaining`;
-        etaLabel.classList.add("visible");
-      } else {
-        etaLabel.classList.remove("visible");
-        etaLabel.textContent = "";
-      }
-    }
-
-    function iconDone() {
-      dlIcon.classList.add("visible");
-      spinnerRing.style.display = "none";
-      checkPath.style.display   = "";
-      errLine1.style.display    = "none";
-      errLine2.style.display    = "none";
-      etaLabel.classList.remove("visible");
-      // trigger stroke-draw animation on next frame
-      requestAnimationFrame(() => checkPath.classList.add("drawn"));
-    }
-
-    function iconError() {
-      dlIcon.classList.add("visible");
-      spinnerRing.style.display = "none";
-      checkPath.style.display   = "none";
-      errLine1.style.display    = "";
-      errLine2.style.display    = "";
-      checkPath.classList.remove("drawn");
-      etaLabel.classList.remove("visible");
-    }
-
-    // ---
+    const fetchBtn = document.getElementById("fetchBtn");
+    const fetchStatus = document.getElementById("fetchStatus");
+    const resultCard = document.getElementById("resultCard");
+    const qualityGrid = document.getElementById("qualityGrid");
+    const qualityLabel = document.getElementById("qualityLabel");
+    const resetBtn = document.getElementById("resetBtn");
 
     function fmtDuration(sec) {
       if (!sec) return "--:--";
@@ -577,6 +655,10 @@
       return h + "p";
     }
 
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async function fetchInfo() {
       const url = urlInput.value.trim();
       if (!url) {
@@ -587,8 +669,11 @@
 
       fetchBtn.disabled = true;
       fetchStatus.className = "status";
-      fetchStatus.textContent = "Reading video info...";
+      fetchStatus.textContent = "Reading info...";
       resultCard.style.display = "none";
+
+      // Reset generic UI states
+      [singleUi, zipUi].forEach(ui => resetJobUI(ui));
 
       try {
         const res = await fetch(`${API}/api/info`, {
@@ -597,7 +682,7 @@
           body: JSON.stringify({ url })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Could not read that video.");
+        if (!res.ok) throw new Error(data.detail || "Could not read that URL.");
 
         currentInfo = data;
         filenameInput.value = currentInfo.title || "";
@@ -612,10 +697,72 @@
     }
 
     function renderResult() {
-      document.getElementById("thumb").src = currentInfo.thumbnail || "";
-      document.getElementById("vidTitle").textContent = currentInfo.title || "Untitled";
-      document.getElementById("vidUploader").textContent = currentInfo.uploader || "Unknown uploader";
-      document.getElementById("vidDuration").textContent = fmtDuration(currentInfo.duration);
+      const isPlaylist = currentInfo.is_playlist;
+
+      if (isPlaylist) {
+        document.getElementById("singleHeader").style.display = "none";
+        document.getElementById("singleControls").style.display = "none";
+        document.getElementById("playlistHeader").style.display = "flex";
+        document.getElementById("playlistControls").style.display = "block";
+
+        document.getElementById("plTitle").textContent = currentInfo.title || "Playlist";
+        document.getElementById("plUploader").textContent = currentInfo.uploader || "Unknown uploader";
+        document.getElementById("plCount").textContent = `${currentInfo.entries.length} videos`;
+
+        const list = document.getElementById("playlistItems");
+        list.innerHTML = "";
+        currentInfo.entries.forEach(entry => {
+          const row = document.createElement("div");
+          row.className = "playlist-row";
+          row.innerHTML = `
+             <img class="row-thumb" src="${entry.thumbnail || ''}" alt="">
+             <div class="row-meta">
+                 <div class="row-title" title="${entry.title}">${entry.title}</div>
+                 <div class="row-sub">${fmtDuration(entry.duration)}</div>
+             </div>
+             <div class="row-actions">
+                 <div class="row-actions-btns">
+                     <button class="btn-primary row-dl-btn" disabled>Download</button>
+                     <button class="btn-secondary row-cancel-btn" style="display:none;">Cancel</button>
+                 </div>
+                 <div class="row-status-line status">
+                     <svg class="dl-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle class="spinner-ring" cx="12" cy="12" r="9" />
+                        <path class="check-bg" d="M5.5 12.5l4.5 4.5 8.5-9" />
+                        <line class="err-line" x1="7" y1="7" x2="17" y2="17" />
+                        <line class="err-line" x1="17" y1="7" x2="7" y2="17" />
+                     </svg>
+                     <span class="eta-label"></span>
+                     <span class="dl-text"></span>
+                 </div>
+             </div>
+          `;
+
+          const ui = extractUI(row, '.row-dl-btn', '.row-cancel-btn', '.row-status-line');
+          ui.btnDl.onclick = () => {
+            const payload = {
+              url: entry.url,
+              mode,
+              quality: String(selectedQuality),
+              filename: `${(entry.index + 1).toString().padStart(3, '0')} - ${entry.title}`
+            };
+            runDownloadFlow(ui, payload, "/api/download/start");
+          };
+          list.appendChild(row);
+        });
+
+      } else {
+        document.getElementById("playlistHeader").style.display = "none";
+        document.getElementById("playlistControls").style.display = "none";
+        document.getElementById("singleHeader").style.display = "flex";
+        document.getElementById("singleControls").style.display = "block";
+
+        document.getElementById("thumb").src = currentInfo.thumbnail || "";
+        document.getElementById("vidTitle").textContent = currentInfo.title || "Untitled";
+        document.getElementById("vidUploader").textContent = currentInfo.uploader || "Unknown uploader";
+        document.getElementById("vidDuration").textContent = fmtDuration(currentInfo.duration);
+      }
+
       resultCard.style.display = "block";
       setMode("video");
     }
@@ -623,20 +770,23 @@
     function setMode(m) {
       mode = m;
       selectedQuality = null;
-      downloadBtn.disabled = true;
       document.getElementById("modeVideoBtn").classList.toggle("active", m === "video");
       document.getElementById("modeAudioBtn").classList.toggle("active", m === "audio");
       qualityLabel.textContent = m === "video" ? "Video quality" : "Audio bitrate";
+
+      document.getElementById("downloadBtn").disabled = true;
+      document.getElementById("zipDownloadBtn").disabled = true;
+      document.querySelectorAll(".row-dl-btn").forEach(b => b.disabled = true);
+
       renderQualityGrid();
     }
 
     function renderQualityGrid() {
       qualityGrid.innerHTML = "";
-
       if (mode === "video") {
         const qualities = currentInfo.video_qualities || [];
         if (qualities.length === 0) {
-          qualityGrid.innerHTML = `<div class="empty-note">No video streams found for this URL.</div>`;
+          qualityGrid.innerHTML = `<div class="empty-note">No video streams found.</div>`;
           return;
         }
         qualities.forEach(q => {
@@ -662,119 +812,176 @@
       selectedQuality = value;
       [...qualityGrid.children].forEach(c => c.classList.remove("selected"));
       btn.classList.add("selected");
-      downloadBtn.disabled = false;
+
+      document.getElementById("downloadBtn").disabled = false;
+      document.getElementById("zipDownloadBtn").disabled = false;
+      document.querySelectorAll(".row-dl-btn").forEach(b => b.disabled = false);
     }
 
-    function delay(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
+    // --- Extracted Download Flow Manager ---
+    function extractUI(container, btnDlSel, btnCancelSel, statusSel) {
+      const st = container.querySelector(statusSel) || container;
+      return {
+        btnDl: container.querySelector(btnDlSel),
+        btnCancel: container.querySelector(btnCancelSel),
+        statusContainer: st,
+        icon: st.querySelector('.dl-icon'),
+        spinner: st.querySelector('.spinner-ring'),
+        check: st.querySelector('.check-bg'),
+        errLine: st.querySelectorAll('.err-line'),
+        eta: st.querySelector('.eta-label'),
+        text: st.querySelector('.dl-text')
+      };
     }
 
-    async function pollStatus(jobId, signal) {
-      while (!signal.aborted) {
-        try {
-          const res = await fetch(`${API}/api/download/status/${jobId}`);
-          if (res.ok) {
-            const { eta } = await res.json();
-            iconSpinning(eta);
-          }
-        } catch {}
-        await delay(800);
-      }
+    function resetJobUI(ui) {
+      ui.statusContainer.className = "status dl-status-container";
+      ui.icon.classList.remove("visible");
+      ui.text.textContent = "";
+      ui.btnDl.disabled = true;
+      ui.btnCancel.style.display = "none";
     }
 
-    async function waitForFinishedFile(jobId) {
-      while (true) {
-        const res = await fetch(`${API}/api/download/file/${jobId}`);
-        if (res.ok) return res;
+    const singleUi = extractUI(document, '#downloadBtn', '#cancelBtn', '#downloadStatus');
+    const zipUi = extractUI(document, '#zipDownloadBtn', '#zipCancelBtn', '#zipDownloadStatus');
 
-        const data = await res.json().catch(() => ({}));
-        if (res.status === 409) {
-          await delay(700);
-          continue;
-        }
+    singleUi.btnDl.onclick = () => {
+      runDownloadFlow(singleUi, {
+        url: urlInput.value.trim(),
+        mode,
+        quality: String(selectedQuality),
+        filename: filenameInput.value.trim(),
+      }, "/api/download/start");
+    };
 
-        throw new Error(data.detail || "Download failed.");
-      }
-    }
+    zipUi.btnDl.onclick = () => {
+      runDownloadFlow(zipUi, {
+        items: currentInfo.entries.map(e => ({ url: e.url, title: e.title, index: e.index })),
+        mode,
+        quality: String(selectedQuality),
+        filename: filenameInput.value.trim() || currentInfo.title || "",
+      }, "/api/download/zip/start");
+    };
 
-    async function fetchFinishedFile(jobId) {
-      const res = await waitForFinishedFile(jobId);
-
-      const rawBlob = await res.blob();
-      const blob = new Blob([rawBlob], { type: mode === "audio" ? "audio/mpeg" : "video/mp4" });
-      const disposition = res.headers.get("Content-Disposition") || "";
-      const match = disposition.match(/filename="?([^"]+)"?/);
-      const filename = match ? match[1] : (mode === "audio" ? "audio.mp3" : "video.mp4");
-
-      const a = document.createElement("a");
-      const objUrl = URL.createObjectURL(blob);
-      a.href = objUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(objUrl);
-    }
-
-    async function doDownload() {
+    async function runDownloadFlow(ui, startPayload, endpoint) {
       if (!selectedQuality) return;
-      downloadBtn.disabled = true;
-      downloadStatus.className = "status";
+      ui.btnDl.disabled = true;
+      ui.btnCancel.style.display = "inline-block";
+      ui.btnCancel.disabled = false;
+      ui.statusContainer.className = "status dl-status-container";
 
-      iconSpinning();
-      dlText.textContent = "Downloading.. plz wait few seconds.";
+      ui.icon.classList.add("visible");
+      ui.spinner.style.display = "";
+      ui.check.style.display = "none";
+      ui.errLine.forEach(e => e.style.display = "none");
+      ui.check.classList.remove("drawn");
+      ui.eta.classList.remove("visible");
+      ui.text.textContent = "Starting...";
+
+      let jobId = null;
+      const ac = new AbortController();
+
+      ui.btnCancel.onclick = async () => {
+        if (!jobId) return;
+        ui.btnCancel.disabled = true;
+        try { await fetch(`${API}/api/download/cancel/${jobId}`, { method: "POST" }); } catch (e) { }
+      };
 
       try {
-        const startRes = await fetch(`${API}/api/download/start`, {
+        const startRes = await fetch(`${API}${endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url: urlInput.value.trim(),
-            mode,
-            quality: String(selectedQuality),
-            filename: filenameInput.value.trim(),
-          })
+          body: JSON.stringify(startPayload)
         });
 
         if (!startRes.ok) {
-          const data = await startRes.json().catch(() => ({}));
-          throw new Error(data.detail || "Download failed.");
+          const d = await startRes.json().catch(() => ({}));
+          const errMsg = typeof d.detail === 'string' ? d.detail : (d.detail ? JSON.stringify(d.detail) : "Download failed.");
+          throw new Error(errMsg);
         }
 
-        const { job_id: jobId } = await startRes.json();
-        if (!jobId) throw new Error("Download failed: missing job id.");
+        const data = await startRes.json();
+        jobId = data.job_id;
 
-        currentJobId = jobId;
-        cancelBtn.style.display = "inline-block";
-        cancelBtn.disabled = false;
+        // Polling loop
+        (async () => {
+          while (!ac.signal.aborted) {
+            try {
+              const res = await fetch(`${API}/api/download/status/${jobId}`);
+              if (res.ok) {
+                const st = await res.json();
+                if (st.eta > 0) {
+                  ui.eta.textContent = `${Math.round(st.eta)}s`;
+                  ui.eta.classList.add("visible");
+                } else {
+                  ui.eta.classList.remove("visible");
+                }
+                if (st.progress_text) {
+                  ui.text.textContent = st.progress_text;
+                } else if (ui.text.textContent === "Starting...") {
+                  ui.text.textContent = "Downloading...";
+                }
+              }
+            } catch (e) { }
+            await delay(800);
+          }
+        })();
 
-        const ac = new AbortController();
-        pollStatus(jobId, ac.signal);
-
-        try {
-          await fetchFinishedFile(jobId);
-        } finally {
-          ac.abort();
-          cancelBtn.style.display = "none";
-          currentJobId = null;
+        // Wait for file completion
+        let fileRes;
+        while (true) {
+          fileRes = await fetch(`${API}/api/download/file/${jobId}`);
+          if (fileRes.ok) break;
+          const errData = await fileRes.json().catch(() => ({}));
+          if (fileRes.status === 409) {
+            await delay(700);
+            continue;
+          }
+          throw new Error(errData.detail || "Download failed.");
         }
 
-        downloadStatus.className = "status ok";
-        iconDone();
-        dlText.textContent = "Done — check your downloads folder.";
-        return;
+        const rawBlob = await fileRes.blob();
+        const type = fileRes.headers.get("Content-Type") || "application/octet-stream";
+        const blob = new Blob([rawBlob], { type });
+        const disposition = fileRes.headers.get("Content-Disposition") || "";
+        const match = disposition.match(/filename="?([^"]+)"?/);
+
+        const fallback = endpoint.includes("zip") ? "playlist.zip" : (startPayload.mode === "audio" ? "audio.mp3" : "video.mp4");
+        const filename = match ? match[1] : fallback;
+
+        const a = document.createElement("a");
+        const objUrl = URL.createObjectURL(blob);
+        a.href = objUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(objUrl);
+
+        // Success state
+        ui.statusContainer.className = "status ok dl-status-container";
+        ui.spinner.style.display = "none";
+        ui.check.style.display = "";
+        ui.eta.classList.remove("visible");
+        requestAnimationFrame(() => ui.check.classList.add("drawn"));
+        ui.text.textContent = "Done.";
+
       } catch (e) {
         if (e.message === "Download cancelled.") {
-          downloadStatus.className = "status";
-          iconNone();
-          dlText.textContent = "Download cancelled.";
+          ui.statusContainer.className = "status dl-status-container";
+          ui.icon.classList.remove("visible");
+          ui.text.textContent = "Cancelled.";
         } else {
-          downloadStatus.className = "status err";
-          iconError();
-          dlText.textContent = e.message || "Download failed.";
+          ui.statusContainer.className = "status err dl-status-container";
+          ui.spinner.style.display = "none";
+          ui.errLine.forEach(el => el.style.display = "");
+          ui.eta.classList.remove("visible");
+          ui.text.textContent = e.message || "Failed.";
         }
       } finally {
-        downloadBtn.disabled = false;
+        ac.abort();
+        ui.btnCancel.style.display = "none";
+        ui.btnDl.disabled = false;
       }
     }
 
@@ -782,35 +989,27 @@
     urlInput.addEventListener("keydown", e => { if (e.key === "Enter") fetchInfo(); });
     document.getElementById("modeVideoBtn").onclick = () => setMode("video");
     document.getElementById("modeAudioBtn").onclick = () => setMode("audio");
-    downloadBtn.onclick = doDownload;
-
-    cancelBtn.onclick = async () => {
-      if (!currentJobId) return;
-      cancelBtn.disabled = true;
-      try {
-        await fetch(`${API}/api/download/cancel/${currentJobId}`, { method: "POST" });
-      } catch (e) {
-        cancelBtn.disabled = false;
-      }
-    };
 
     resetBtn.onclick = async () => {
       urlInput.value = "";
       filenameInput.value = "";
       fetchStatus.textContent = "";
       fetchStatus.className = "status";
-      iconNone();
-      dlText.textContent = "";
-      downloadStatus.className = "status";
+
+      [singleUi, zipUi].forEach(ui => resetJobUI(ui));
+      document.querySelectorAll(".row-dl-btn").forEach(b => {
+        const rowUi = extractUI(b.closest('.playlist-row'), '.row-dl-btn', '.row-cancel-btn', '.row-status-line');
+        resetJobUI(rowUi);
+      });
+
       resultCard.style.display = "none";
       currentInfo = null;
       selectedQuality = null;
-      downloadBtn.disabled = true;
 
       try {
         await fetch(`${API}/api/reset`, { method: "POST" });
       } catch (e) {
-        console.error("Reset backend failed", e);
+        console.error("Reset failed", e);
       }
     };
   </script>
