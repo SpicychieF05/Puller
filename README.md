@@ -6,6 +6,8 @@
 
 A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, download. Backend is FastAPI + yt-dlp; frontend is one plain HTML file (no build step). Everything below is command-only so it matches the actual repo contents.
 
+<img src="media/puller-process.svg" alt="Puller — paste a link, choose quality, download" width="100%" />
+
 ## Table of Contents
 - [Requirements](#requirements)
 - [Quick start (Windows)](#quick-start-windows)
