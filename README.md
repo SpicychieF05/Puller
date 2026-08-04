@@ -22,7 +22,7 @@ A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, 
 
 ## Requirements
 
-- **Python 3.9+**
+- **Python 3.11+**
 - **ffmpeg** on your PATH — needed to merge video+audio streams and to transcode audio to a target bitrate.
   - macOS: `brew install ffmpeg`
   - Windows: `winget install ffmpeg`
@@ -39,45 +39,36 @@ ffmpeg -version
 
 ## Quick start (Windows)
 
-If you are on Windows, you can use the included batch scripts to automatically configure and run the project.
+If you are on Windows, you can use the included batch scripts to set up and run the project.
 
-1. **Setup:** Double-click `setup.bat` or run it from the command line. This creates an isolated virtual environment (`.venv`) and installs the dependencies automatically.
-2. **Run:** Double-click `run.bat`. This activates the environment, starts the FastAPI backend, and automatically opens `http://127.0.0.1:8000` in your web browser.
+1. **Setup:** Double-click `setup.bat` or run it from the command line. It creates or reuses the virtual environment in `.venv`, installs the dependencies from `requirements.txt`, and checks whether `ffmpeg` is available.
+2. **Run:** Double-click `run.bat`. It starts the FastAPI backend and opens `http://127.0.0.1:8000` in your browser.
 
 ---
 
 ## Manual setup
 
-For macOS / Linux users (or if you prefer configuring Windows manually), follow these step-by-step commands inside the `ytdlp-downloader/` folder:
+If you prefer to set up everything manually, follow these steps inside the `puller/` folder:
 
 ### Step 1 — Create a new virtual environment
-Creates an isolated Python environment in `.venv/` so dependencies don't clash with your machine.
+Creates an isolated Python environment in `.venv/` so dependencies do not clash with your machine.
 
-**macOS / Linux**
-```bash
-python3 -m venv .venv
-```
 **Windows (PowerShell)**
 ```powershell
 python -m venv .venv
 ```
 
 ### Step 2 — Activate it and install requirements
-**macOS / Linux**
-```bash
-source .venv/bin/activate
-pip install -r requirements.txt
-```
 **Windows (PowerShell)**
 ```powershell
-.venv\Scripts\activate
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
 ### Step 3 — Start the server
 With the virtual environment activated:
-```bash
-uvicorn main:app --host 127.0.0.1 --port 8000
+```powershell
+python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 Open **http://127.0.0.1:8000** in your browser. To stop the server: `Ctrl+C` in the terminal.
 
