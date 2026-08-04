@@ -29,8 +29,7 @@ if exist .venv (
 )
 
 echo Installing dependencies...
-call .venv\Scripts\activate.bat
-pip install -r requirements.txt
+call .venv\Scripts\python.exe -m pip install -r requirements.txt
 
 if errorlevel 1 (
     echo Dependency installation failed. Check the output above.
