@@ -542,6 +542,7 @@
       </div>
       <div class="field-row">
         <input type="text" id="filenameInput" placeholder="Optional filename (leave blank to use the title)" />
+        <button class="btn-secondary" id="saveNameBtn">Name & Claim</button>
         <button class="btn-secondary" id="resetBtn">Reset</button>
       </div>
       <div class="status" id="fetchStatus"></div>
@@ -634,12 +635,15 @@
 
     const urlInput = document.getElementById("urlInput");
     const filenameInput = document.getElementById("filenameInput");
+    const saveNameBtn = document.getElementById("saveNameBtn");
     const fetchBtn = document.getElementById("fetchBtn");
     const fetchStatus = document.getElementById("fetchStatus");
     const resultCard = document.getElementById("resultCard");
     const qualityGrid = document.getElementById("qualityGrid");
     const qualityLabel = document.getElementById("qualityLabel");
     const resetBtn = document.getElementById("resetBtn");
+
+    let savedFilename = "";
 
     function fmtDuration(sec) {
       if (!sec) return "--:--";
@@ -686,6 +690,7 @@
 
         currentInfo = data;
         filenameInput.value = currentInfo.title || "";
+        savedFilename = filenameInput.value.trim();
         fetchStatus.textContent = "";
         renderResult();
       } catch (e) {
@@ -850,8 +855,8 @@
         url: urlInput.value.trim(),
         mode,
         quality: String(selectedQuality),
-        filename: filenameInput.value.trim(),
-      }, "/api/download/start");
+        filename: savedFilename || filenameInput.value.trim(),
+      }, "/api/download/start", savedFilename);
     };
 
     zipUi.btnDl.onclick = () => {
@@ -859,11 +864,11 @@
         items: currentInfo.entries.map(e => ({ url: e.url, title: e.title, index: e.index })),
         mode,
         quality: String(selectedQuality),
-        filename: filenameInput.value.trim() || currentInfo.title || "",
-      }, "/api/download/zip/start");
+        filename: savedFilename || filenameInput.value.trim() || currentInfo.title || "",
+      }, "/api/download/zip/start", savedFilename);
     };
 
-    async function runDownloadFlow(ui, startPayload, endpoint) {
+    async function runDownloadFlow(ui, startPayload, endpoint, claimedName = "") {
       if (!selectedQuality) return;
       ui.btnDl.disabled = true;
       ui.btnCancel.style.display = "inline-block";
@@ -943,11 +948,18 @@
         const rawBlob = await fileRes.blob();
         const type = fileRes.headers.get("Content-Type") || "application/octet-stream";
         const blob = new Blob([rawBlob], { type });
-        const disposition = fileRes.headers.get("Content-Disposition") || "";
-        const match = disposition.match(/filename="?([^"]+)"?/);
 
-        const fallback = endpoint.includes("zip") ? "playlist.zip" : (startPayload.mode === "audio" ? "audio.mp3" : "video.mp4");
-        const filename = match ? match[1] : fallback;
+        // Determine extension from Content-Disposition or mode
+        const disposition = fileRes.headers.get("Content-Disposition") || "";
+        const cdMatch = disposition.match(/filename="?([^"]+)"?/);
+        const cdName = cdMatch ? cdMatch[1] : "";
+        const ext = cdName ? "." + cdName.split(".").pop() :
+                    endpoint.includes("zip") ? ".zip" :
+                    startPayload.mode === "audio" ? ".mp3" : ".mp4";
+
+        // Use the claimed name (from Name & Claim button) with the correct extension
+        const fallbackName = cdName || (endpoint.includes("zip") ? "playlist.zip" : (startPayload.mode === "audio" ? "audio.mp3" : "video.mp4"));
+        const filename = claimedName ? claimedName.replace(/\.[^.]+$/, "") + ext : fallbackName;
 
         const a = document.createElement("a");
         const objUrl = URL.createObjectURL(blob);
@@ -990,9 +1002,28 @@
     document.getElementById("modeVideoBtn").onclick = () => setMode("video");
     document.getElementById("modeAudioBtn").onclick = () => setMode("audio");
 
+    saveNameBtn.onclick = () => {
+      savedFilename = filenameInput.value.trim();
+      // Lock the text box so the name can't be accidentally changed
+      filenameInput.disabled = true;
+      filenameInput.style.borderColor = "var(--amber)";
+      filenameInput.style.opacity = "0.85";
+      // Keep the button showing claimed state until Reset
+      saveNameBtn.textContent = "Claimed ✓";
+      saveNameBtn.style.borderColor = "var(--amber)";
+      saveNameBtn.style.color = "var(--amber)";
+    };
+
     resetBtn.onclick = async () => {
       urlInput.value = "";
       filenameInput.value = "";
+      filenameInput.disabled = false;
+      filenameInput.style.borderColor = "";
+      filenameInput.style.opacity = "";
+      savedFilename = "";
+      saveNameBtn.textContent = "Name & Claim";
+      saveNameBtn.style.borderColor = "";
+      saveNameBtn.style.color = "";
       fetchStatus.textContent = "";
       fetchStatus.className = "status";
 

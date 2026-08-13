@@ -69,8 +69,12 @@ def safe_filename(name: str) -> str:
 def requested_filename_base(name: str) -> str:
     if not name:
         return ""
-    base = re.sub(r'[\\/*?:"<>|]', "", Path(name).stem)
-    return base.strip()[:150]
+    cleaned = re.sub(r'[\\/*?:"<>|]', "", name).strip()
+    known_exts = {".mp3", ".mp4", ".m4a", ".webm", ".mkv", ".opus", ".flac", ".wav", ".avi", ".mov", ".zip"}
+    p = Path(cleaned)
+    if p.suffix.lower() in known_exts:
+        cleaned = p.stem
+    return cleaned[:150]
 
 def initial_job_state() -> dict:
     return {
