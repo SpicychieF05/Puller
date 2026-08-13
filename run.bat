@@ -6,7 +6,6 @@ call :EnsureReady
 if errorlevel 1 (
     echo.
     echo Could not prepare the project environment.
-    pause
     exit /b 1
 )
 
@@ -17,9 +16,11 @@ if errorlevel 1 (
     echo.
 )
 
-start "" cmd /c "timeout /t 2 >nul & start http://127.0.0.1:8000"
+start "" http://127.0.0.1:8000
 
-echo Starting the app at http://127.0.0.1:8000 (Ctrl+C to stop)
+echo.
+echo Starting the app at http://127.0.0.1:8000
+echo Press Ctrl+C, then Y to stop the server.
 call .venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000
 exit /b 0
 

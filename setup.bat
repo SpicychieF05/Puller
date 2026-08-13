@@ -54,8 +54,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo Setup complete. You can now run run.bat to start the app.
-pause
+echo Setup complete. Starting the app...
 exit /b 0
 
 :AddKnownBinDirs
