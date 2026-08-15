@@ -908,41 +908,78 @@
         const data = await startRes.json();
         jobId = data.job_id;
 
-        // Polling loop
-        (async () => {
-          while (!ac.signal.aborted) {
-            try {
-              const res = await fetch(`${API}/api/download/status/${jobId}`);
-              if (res.ok) {
-                const st = await res.json();
-                if (st.eta > 0) {
-                  ui.eta.textContent = `${Math.round(st.eta)}s`;
-                  ui.eta.classList.add("visible");
-                } else {
-                  ui.eta.classList.remove("visible");
-                }
-                if (st.progress_text) {
-                  ui.text.textContent = st.progress_text;
-                } else if (ui.text.textContent === "Starting...") {
-                  ui.text.textContent = "Downloading...";
-                }
-              }
-            } catch (e) { }
-            await delay(800);
-          }
-        })();
+        // ─── Single unified status-poll loop ──────────────────────────────────
+        // Previously two loops ran concurrently: one for UI updates and one
+        // that blindly hammered /file/ and relied on 409 as a "not yet ready"
+        // signal. That caused the log flood. Now we have ONE loop that polls
+        // /status/ and only fetches the file ONCE when download_url is present
+        // (i.e. status === "finished"). Backoff starts at 1 s and caps at 4 s.
+        // ──────────────────────────────────────────────────────────────────────
+        let pollInterval = 1000;
+        const MAX_POLL_INTERVAL = 4000;
+        const POLL_BACKOFF = 1.3;
+        let downloadUrl = null;
 
-        // Wait for file completion
-        let fileRes;
-        while (true) {
-          fileRes = await fetch(`${API}/api/download/file/${jobId}`);
-          if (fileRes.ok) break;
-          const errData = await fileRes.json().catch(() => ({}));
-          if (fileRes.status === 409) {
-            await delay(700);
+        while (!downloadUrl) {
+          await delay(pollInterval);
+
+          let st;
+          try {
+            const statusRes = await fetch(`${API}/api/download/status/${jobId}`);
+            if (!statusRes.ok) {
+              // 404 means the job was wiped (e.g. server restart) — bail out
+              if (statusRes.status === 404) throw new Error("Job expired on server. Please try again.");
+              // Any other unexpected error: keep polling
+              continue;
+            }
+            st = await statusRes.json();
+          } catch (err) {
+            // Network blip — keep polling
             continue;
           }
-          throw new Error(errData.detail || "Download failed.");
+
+          // Update the ETA / progress label while the job runs
+          if (st.eta > 0) {
+            ui.eta.textContent = `${Math.round(st.eta)}s`;
+            ui.eta.classList.add("visible");
+          } else {
+            ui.eta.classList.remove("visible");
+          }
+          if (st.progress_text) {
+            ui.text.textContent = st.progress_text;
+          } else if (ui.text.textContent === "Starting...") {
+            ui.text.textContent = "Downloading...";
+          }
+
+          // Terminal failure states — surface error immediately, stop polling
+          if (st.status === "error") {
+            throw new Error(st.error || "Server-side download failed.");
+          }
+          if (st.status === "cancelled") {
+            throw new Error("Download cancelled.");
+          }
+
+          // Backend exposes download_url only when status === "finished"
+          if (st.download_url) {
+            downloadUrl = st.download_url;
+            break;
+          }
+
+          // Adaptive backoff: slow down polls as eta grows (saves bandwidth)
+          pollInterval = Math.min(pollInterval * POLL_BACKOFF, MAX_POLL_INTERVAL);
+        }
+
+        ui.text.textContent = "Finalising...";
+
+        // Fetch the file exactly ONCE now that we know it is ready
+        const fileRes = await fetch(`${API}${downloadUrl}`);
+
+        // Guard: the file fetch should always be 200 at this point, but handle
+        // edge cases (e.g. server restart cleaned up the file between status check
+        // and this fetch).
+        if (!fileRes.ok) {
+          const errData = await fileRes.json().catch(() => ({}));
+          throw new Error(errData.detail || `File fetch failed (HTTP ${fileRes.status}).`);
         }
 
         const rawBlob = await fileRes.blob();
@@ -991,6 +1028,9 @@
           ui.text.textContent = e.message || "Failed.";
         }
       } finally {
+        // ac was only needed for the old concurrent background loop;
+        // the new single-loop flow does not require it, but keep the abort
+        // here as a no-op safety measure in case future code reuses ac.
         ac.abort();
         ui.btnCancel.style.display = "none";
         ui.btnDl.disabled = false;

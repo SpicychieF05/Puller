@@ -1,5 +1,4 @@
-# PATH: main.py
-import os
+﻿# PATH: main.py
 import re
 import tempfile
 import threading
@@ -11,7 +10,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
@@ -39,8 +38,10 @@ JOBS_LOCK = threading.Lock()
 # Concurrency cap for all yt-dlp operations
 DOWNLOAD_SEMAPHORE = threading.Semaphore(2)
 
+
 class InfoRequest(BaseModel):
     url: str
+
 
 class DownloadRequest(BaseModel):
     url: str
@@ -48,10 +49,12 @@ class DownloadRequest(BaseModel):
     quality: str
     filename: str = ""
 
+
 class PlaylistItem(BaseModel):
     url: str
     title: str
     index: int
+
 
 class ZipDownloadRequest(BaseModel):
     items: list[PlaylistItem]
@@ -59,22 +62,29 @@ class ZipDownloadRequest(BaseModel):
     quality: str
     filename: str = ""
 
+
 def base_opts():
     return {"quiet": True, "no_warnings": True, "noplaylist": True}
 
+
 def safe_filename(name: str) -> str:
-    name = re.sub(r'[\\/*?:"<>|]', "", name or "video")
+    name = re.sub(r'[\\/*?"<>|]', "", name or "video")
     return name.strip()[:150] or "video"
+
 
 def requested_filename_base(name: str) -> str:
     if not name:
         return ""
-    cleaned = re.sub(r'[\\/*?:"<>|]', "", name).strip()
-    known_exts = {".mp3", ".mp4", ".m4a", ".webm", ".mkv", ".opus", ".flac", ".wav", ".avi", ".mov", ".zip"}
+    cleaned = re.sub(r'[\\/*?"<>|]', "", name).strip()
+    known_exts = {
+        ".mp3", ".mp4", ".m4a", ".webm", ".mkv",
+        ".opus", ".flac", ".wav", ".avi", ".mov", ".zip",
+    }
     p = Path(cleaned)
     if p.suffix.lower() in known_exts:
         cleaned = p.stem
     return cleaned[:150]
+
 
 def initial_job_state() -> dict:
     return {
@@ -89,6 +99,7 @@ def initial_job_state() -> dict:
         "progress_text": None,
         "temp_dir": None,
     }
+
 
 def cleanup_stale_jobs() -> None:
     now = time.time()
@@ -111,6 +122,7 @@ def cleanup_stale_jobs() -> None:
                 shutil.rmtree(temp_dir, ignore_errors=True)
             JOBS.pop(job_id, None)
 
+
 def build_download_opts(mode: str, quality: str, out_template: str) -> dict:
     opts = base_opts()
     opts["outtmpl"] = out_template
@@ -121,8 +133,10 @@ def build_download_opts(mode: str, quality: str, out_template: str) -> dict:
             raise HTTPException(status_code=400, detail="Invalid quality value.")
         height, hdr = m.group(1), bool(m.group(2))
         if hdr:
-            fmt = (f"bestvideo[height<=?{height}][dynamic_range!=SDR]+bestaudio/"
-                   f"best[height<=?{height}]")
+            fmt = (
+                f"bestvideo[height<=?{height}][dynamic_range!=SDR]+bestaudio/"
+                f"best[height<=?{height}]"
+            )
         else:
             fmt = f"bestvideo[height<=?{height}]+bestaudio/best[height<=?{height}]"
         opts["format"] = fmt
@@ -141,7 +155,15 @@ def build_download_opts(mode: str, quality: str, out_template: str) -> dict:
 
     return opts
 
-def perform_single_download(url: str, mode: str, quality: str, out_template: str, cancel_event: threading.Event, progress_cb=None):
+
+def perform_single_download(
+    url: str,
+    mode: str,
+    quality: str,
+    out_template: str,
+    cancel_event: threading.Event,
+    progress_cb=None,
+):
     def progress_hook(d: dict) -> None:
         if cancel_event.is_set():
             raise yt_dlp.utils.DownloadError("Cancelled by user")
@@ -150,7 +172,7 @@ def perform_single_download(url: str, mode: str, quality: str, out_template: str
 
     opts = build_download_opts(mode, quality, out_template)
     opts["progress_hooks"] = [progress_hook]
-    
+
     with DOWNLOAD_SEMAPHORE:
         if cancel_event.is_set():
             raise yt_dlp.utils.DownloadError("Cancelled by user")
@@ -160,10 +182,12 @@ def perform_single_download(url: str, mode: str, quality: str, out_template: str
             filepath = filepath.with_suffix(".mp3" if mode == "audio" else ".mp4")
             return filepath, info
 
+
 def run_download_job(job_id: str, req: DownloadRequest) -> None:
     job = JOBS.get(job_id)
-    if not job: return
-    
+    if not job:
+        return
+
     def progress_cb(d: dict):
         if d.get("status") == "downloading":
             with JOBS_LOCK:
@@ -174,7 +198,10 @@ def run_download_job(job_id: str, req: DownloadRequest) -> None:
     out_template = str(DOWNLOAD_DIR / f"{job_id}{suffix}.%(ext)s")
 
     try:
-        filepath, info = perform_single_download(req.url, req.mode, req.quality, out_template, job["cancel_event"], progress_cb)
+        filepath, info = perform_single_download(
+            req.url, req.mode, req.quality, out_template,
+            job["cancel_event"], progress_cb,
+        )
     except yt_dlp.utils.DownloadError as e:
         with JOBS_LOCK:
             if job["cancel_event"].is_set():
@@ -185,19 +212,25 @@ def run_download_job(job_id: str, req: DownloadRequest) -> None:
             for p in DOWNLOAD_DIR.glob(f"{job_id}*"):
                 p.unlink(missing_ok=True)
         return
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - catch-all for unexpected yt-dlp/OS errors
         with JOBS_LOCK:
             job.update({"status": "error", "error": str(e), "completed_at": time.time()})
         return
 
     if not filepath.exists():
         with JOBS_LOCK:
-            job.update({"status": "error", "error": "File was not created.", "completed_at": time.time()})
+            job.update({
+                "status": "error",
+                "error": "File was not created.",
+                "completed_at": time.time(),
+            })
         return
 
-    download_name_base = requested_filename_base(req.filename) or safe_filename(info.get('title'))
+    download_name_base = (
+        requested_filename_base(req.filename) or safe_filename(info.get("title"))
+    )
     download_name = f"{download_name_base}{filepath.suffix}"
-    
+
     with JOBS_LOCK:
         job.update({
             "status": "finished",
@@ -206,24 +239,26 @@ def run_download_job(job_id: str, req: DownloadRequest) -> None:
             "completed_at": time.time(),
         })
 
+
 def run_zip_job(job_id: str, req: ZipDownloadRequest) -> None:
     job = JOBS.get(job_id)
-    if not job: return
-    
+    if not job:
+        return
+
     temp_dir = DOWNLOAD_DIR / f"zip_{job_id}"
     temp_dir.mkdir(exist_ok=True)
     with JOBS_LOCK:
         job["temp_dir"] = str(temp_dir)
-        
+
     try:
         for i, item in enumerate(req.items):
             if job["cancel_event"].is_set():
                 raise yt_dlp.utils.DownloadError("Cancelled by user")
-                
+
             with JOBS_LOCK:
-                job["progress_text"] = f"Downloading {i+1} of {len(req.items)} — {item.title}"
+                job["progress_text"] = f"Downloading {i+1} of {len(req.items)} - {item.title}"
                 job["eta"] = None
-                
+
             def progress_cb(d: dict):
                 if d.get("status") == "downloading":
                     with JOBS_LOCK:
@@ -232,26 +267,29 @@ def run_zip_job(job_id: str, req: ZipDownloadRequest) -> None:
             prefix = f"{(item.index + 1):03d} - "
             item_base = safe_filename(item.title)
             out_template = str(temp_dir / f"{prefix}{item_base}.%(ext)s")
-            
-            perform_single_download(item.url, req.mode, req.quality, out_template, job["cancel_event"], progress_cb)
-            
+
+            perform_single_download(
+                item.url, req.mode, req.quality, out_template,
+                job["cancel_event"], progress_cb,
+            )
+
         if job["cancel_event"].is_set():
             raise yt_dlp.utils.DownloadError("Cancelled by user")
-            
+
         with JOBS_LOCK:
             job["progress_text"] = "Creating zip file..."
             job["eta"] = None
-            
+
         zip_filename = f"{requested_filename_base(req.filename) or 'Playlist'}.zip"
         zip_filepath = DOWNLOAD_DIR / f"{job_id}.zip"
-        
-        with zipfile.ZipFile(zip_filepath, 'w', zipfile.ZIP_DEFLATED) as zf:
+
+        with zipfile.ZipFile(zip_filepath, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in temp_dir.iterdir():
                 if p.is_file():
                     zf.write(p, p.name)
-                    
+
         shutil.rmtree(temp_dir, ignore_errors=True)
-        
+
         with JOBS_LOCK:
             job.update({
                 "status": "finished",
@@ -260,7 +298,7 @@ def run_zip_job(job_id: str, req: ZipDownloadRequest) -> None:
                 "temp_dir": None,
                 "completed_at": time.time(),
             })
-            
+
     except yt_dlp.utils.DownloadError as e:
         shutil.rmtree(temp_dir, ignore_errors=True)
         with JOBS_LOCK:
@@ -268,10 +306,11 @@ def run_zip_job(job_id: str, req: ZipDownloadRequest) -> None:
                 job.update({"status": "cancelled", "completed_at": time.time()})
             else:
                 job.update({"status": "error", "error": str(e), "completed_at": time.time()})
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - catch-all for unexpected yt-dlp/OS errors
         shutil.rmtree(temp_dir, ignore_errors=True)
         with JOBS_LOCK:
             job.update({"status": "error", "error": str(e), "completed_at": time.time()})
+
 
 def cleanup_job_file(job_id: str, filepath_str: str) -> None:
     Path(filepath_str).unlink(missing_ok=True)
@@ -281,6 +320,7 @@ def cleanup_job_file(job_id: str, filepath_str: str) -> None:
             shutil.rmtree(job["temp_dir"], ignore_errors=True)
         JOBS.pop(job_id, None)
 
+
 @app.post("/api/info")
 def get_info(req: InfoRequest):
     # Phase 1: cheap flat probe to detect playlist vs single video
@@ -289,7 +329,9 @@ def get_info(req: InfoRequest):
         with yt_dlp.YoutubeDL(flat_opts) as ydl:
             probe = ydl.extract_info(req.url, download=False)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not read that URL: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Could not read that URL: {e}"
+        ) from e
 
     if probe is None:
         raise HTTPException(status_code=400, detail="Could not read that URL.")
@@ -311,9 +353,12 @@ def get_info(req: InfoRequest):
                     "id": vid_id,
                     "title": entry.get("title", "Unknown"),
                     "duration": entry.get("duration"),
-                    "url": entry.get("url") or (f"https://www.youtube.com/watch?v={vid_id}" if vid_id else ""),
+                    "url": (
+                        entry.get("url")
+                        or (f"https://www.youtube.com/watch?v={vid_id}" if vid_id else "")
+                    ),
                     "thumbnail": thumb or "",
-                    "index": i
+                    "index": i,
                 })
 
         video_qualities = [
@@ -339,7 +384,9 @@ def get_info(req: InfoRequest):
         with yt_dlp.YoutubeDL(base_opts()) as ydl:
             info = ydl.extract_info(req.url, download=False)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not read that video: {e}")
+        raise HTTPException(
+            status_code=400, detail=f"Could not read that video: {e}"
+        ) from e
 
     if info is None:
         raise HTTPException(status_code=400, detail="Could not read that video.")
@@ -366,6 +413,7 @@ def get_info(req: InfoRequest):
         "audio_bitrates": list(AUDIO_BITRATES),
     }
 
+
 @app.post("/api/download/start")
 def start_download(req: DownloadRequest):
     cleanup_stale_jobs()
@@ -378,6 +426,7 @@ def start_download(req: DownloadRequest):
     thread = threading.Thread(target=run_download_job, args=(job_id, req), daemon=True)
     thread.start()
     return {"job_id": job_id}
+
 
 @app.post("/api/download/zip/start")
 def start_zip_download(req: ZipDownloadRequest):
@@ -394,6 +443,7 @@ def start_zip_download(req: ZipDownloadRequest):
     thread.start()
     return {"job_id": job_id}
 
+
 @app.post("/api/download/cancel/{job_id}")
 def cancel_download(job_id: str):
     with JOBS_LOCK:
@@ -403,17 +453,25 @@ def cancel_download(job_id: str):
         job["cancel_event"].set()
     return {"status": "cancelling"}
 
+
 @app.get("/api/download/status/{job_id}")
 def download_status(job_id: str):
     with JOBS_LOCK:
         job = JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Unknown job id.")
+        current_status = job.get("status")
         return {
-            "status": job.get("status"),
+            "status": current_status,
             "eta": job.get("eta"),
             "progress_text": job.get("progress_text"),
+            "error": job.get("error"),
+            # Only expose the download URL once the job has fully finished
+            "download_url": (
+                f"/api/download/file/{job_id}" if current_status == "finished" else None
+            ),
         }
+
 
 @app.get("/api/download/file/{job_id}")
 def download_file(job_id: str):
@@ -421,10 +479,36 @@ def download_file(job_id: str):
         job = JOBS.get(job_id)
         if job is None:
             raise HTTPException(status_code=404, detail="Unknown job id.")
-        if job.get("status") == "cancelled":
+        job_status = job.get("status")
+        if job_status == "cancelled":
             raise HTTPException(status_code=410, detail="Download cancelled.")
-        if job.get("status") != "finished":
-            raise HTTPException(status_code=409, detail="Job is not finished yet.")
+        if job_status == "error":
+            raise HTTPException(
+                status_code=500,
+                detail=job.get("error") or "Download processing failed.",
+            )
+        if job_status != "finished":
+            # Return 202 Accepted with a Retry-After hint rather than 409 Conflict.
+            # 409 is semantically wrong here - the resource state conflict is that the file
+            # is not yet ready, not that there is a data integrity conflict. 202 + Retry-After
+            # is the correct REST pattern for async resource generation in progress.
+            eta = job.get("eta")
+            retry_after = str(max(1, int(eta))) if eta else "2"
+            return JSONResponse(
+                status_code=202,
+                content={
+                    "status": job_status,
+                    "detail": (
+                        "Job is still processing. "
+                        "Poll /status/ and retry when status is 'finished'."
+                    ),
+                    "status_url": f"/api/download/status/{job_id}",
+                },
+                headers={
+                    "Retry-After": retry_after,
+                    "Location": f"/api/download/status/{job_id}",
+                },
+            )
         filepath = job.get("filepath")
         filename = job.get("filename")
 
@@ -444,10 +528,11 @@ def download_file(job_id: str):
         background=BackgroundTask(cleanup_job_file, job_id, str(file_path_obj)),
     )
 
+
 @app.post("/api/reset")
 def reset_state():
     with JOBS_LOCK:
-        for job_id, job in JOBS.items():
+        for job in JOBS.values():  # fix W0612: job_id loop variable was unused
             filepath = job.get("filepath")
             if filepath:
                 Path(filepath).unlink(missing_ok=True)
@@ -455,13 +540,14 @@ def reset_state():
             if temp_dir and Path(temp_dir).exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
         JOBS.clear()
-        
+
         for p in DOWNLOAD_DIR.iterdir():
             if p.is_file():
                 p.unlink(missing_ok=True)
             elif p.is_dir():
                 shutil.rmtree(p, ignore_errors=True)
     return {"status": "ok"}
+
 
 app.mount("/media", StaticFiles(directory=Path(__file__).parent / "media"), name="media")
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
