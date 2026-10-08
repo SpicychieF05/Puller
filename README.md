@@ -9,8 +9,8 @@ A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, 
 <img src="media/puller-process.svg" alt="Puller — paste a link, choose quality, download" width="100%" />
 
 ## Table of Contents
+
 - [Requirements](#requirements)
-- [Quick start (Windows)](#quick-start-windows)
 - [Manual setup](#manual-setup)
 - [Everyday use](#everyday-use)
 - [Features](#features)
@@ -29,20 +29,13 @@ A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, 
   - Linux: `sudo apt install ffmpeg` (Debian/Ubuntu) or your distro's equivalent
 
 Check both are visible to your terminal:
+
 ```bash
 python3 --version
 ffmpeg -version
 ```
-*(Windows: use `python --version` instead of `python3`.)*
 
----
-
-## Quick start (Windows)
-
-If you are on Windows, you can use the included batch scripts to set up and run the project.
-
-1. **Setup:** Double-click `setup.bat` or run it from the command line. It creates or reuses the virtual environment in `.venv`, installs the dependencies from `requirements.txt`, and checks whether `ffmpeg` is available.
-2. **Run:** Double-click `run.bat`. It starts the FastAPI backend and opens `http://127.0.0.1:8000` in your browser.
+_(Windows: use `python --version` instead of `python3`.)_
 
 ---
 
@@ -51,25 +44,32 @@ If you are on Windows, you can use the included batch scripts to set up and run 
 If you prefer to set up everything manually, follow these steps inside the `puller/` folder:
 
 ### Step 1 — Create a new virtual environment
+
 Creates an isolated Python environment in `.venv/` so dependencies do not clash with your machine.
 
 **Windows (PowerShell)**
+
 ```powershell
 python -m venv .venv
 ```
 
 ### Step 2 — Activate it and install requirements
+
 **Windows (PowerShell)**
+
 ```powershell
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
 ### Step 3 — Start the server
+
 With the virtual environment activated:
+
 ```powershell
 python -m uvicorn main:app --host 127.0.0.1 --port 8000
 ```
+
 Open **http://127.0.0.1:8000** in your browser. To stop the server: `Ctrl+C` in the terminal.
 
 ---
@@ -79,11 +79,11 @@ Open **http://127.0.0.1:8000** in your browser. To stop the server: `Ctrl+C` in 
 You only need to install dependencies once. Every time after that, just activate the environment and start the server:
 
 **macOS / Linux**
+
 ```bash
 source .venv/bin/activate
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
-*(Windows users can simply run `run.bat` again).*
 
 ---
 
@@ -99,18 +99,23 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 ## Optional commands
 
 **Make the app reachable from other devices on your home network:**
+
 ```bash
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
 Then visit `http://<your-computer's-LAN-IP>:8000` from another device on the same Wi-Fi/network.
 
 **Update yt-dlp** (run this whenever downloads start failing — YouTube changes things often):
+
 ```bash
 pip install -U yt-dlp
 ```
-*(Run this with the virtual environment activated.)*
+
+_(Run this with the virtual environment activated.)_
 
 **Update all dependencies to what's pinned in requirements.txt:**
+
 ```bash
 pip install -r requirements.txt --upgrade
 ```
@@ -119,7 +124,7 @@ pip install -r requirements.txt --upgrade
 
 ## Deployment
 
-Puller is built with a FastAPI backend because `yt-dlp` and `ffmpeg` require a full Python environment and system binaries. 
+Puller is built with a FastAPI backend because `yt-dlp` and `ffmpeg` require a full Python environment and system binaries.
 
 **This app cannot be hosted on static providers like GitHub Pages or Vercel.** To deploy it publicly, you must use a Docker-based or VPS environment (such as Render, Fly.io, Railway, or a DigitalOcean droplet) that allows background threading, system-level ffmpeg installation, and local file storage for temporary processing.
 
@@ -148,9 +153,11 @@ Puller is built with a FastAPI backend because `yt-dlp` and `ffmpeg` require a f
 ytdlp-downloader/
 ├── main.py            # FastAPI backend (yt-dlp glue)
 ├── requirements.txt   # Python dependencies
-├── run.bat            # Windows auto-start script
-├── setup.bat          # Windows dependency installation script
+├── Dockerfile         # container image for deployment
+├── .dockerignore      # files excluded from Docker build context
+├── .gitignore         # files excluded from version control
 ├── static/
 │   └── index.html     # the entire frontend
+├── media/             # logo and SVG assets
 └── README.md
 ```

@@ -1,4 +1,4 @@
-﻿# PATH: main.py
+# PATH: main.py
 import re
 import tempfile
 import threading
@@ -549,5 +549,10 @@ def reset_state():
     return {"status": "ok"}
 
 
+@app.get("/healthz")
+def health_check():
+    return {"status": "ok"}
+
+
 app.mount("/media", StaticFiles(directory=Path(__file__).parent / "media"), name="media")
-app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
+app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
