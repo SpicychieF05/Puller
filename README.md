@@ -4,7 +4,7 @@
 
 # Puller — a yt-dlp powered YouTube downloader
 
-A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, download. Backend is FastAPI + yt-dlp; frontend is one plain HTML file (no build step). Everything below is command-only so it matches the actual repo contents.
+A web app that can run locally or be self-deployed: paste a YouTube URL, pick video or audio, pick a quality, download. Backend is FastAPI + yt-dlp; frontend is one plain HTML file (no build step). Everything below is command-only so it matches the actual repo contents.
 
 <img src="media/puller-process.svg" alt="Puller — paste a link, choose quality, download" width="100%" />
 
@@ -27,6 +27,7 @@ A tiny local web app: paste a YouTube URL, pick video or audio, pick a quality, 
   - macOS: `brew install ffmpeg`
   - Windows: `winget install ffmpeg`
   - Linux: `sudo apt install ffmpeg` (Debian/Ubuntu) or your distro's equivalent
+- **JavaScript runtime** _(only when running outside Docker)_ — needed by yt-dlp for YouTube extraction: **Deno ≥ 2.3.0** (recommended) or **Node ≥ 22**.
 
 Check both are visible to your terminal:
 
@@ -89,7 +90,8 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 
 ## Features
 
-- **Single video download:** Choose between Video (up to 4K, HDR options detected) or Audio only (48, 128, 256, 320 kbps). Custom filenames are fully supported.
+- **Single video download:** Choose between Video (up to 1080p, configurable via `MAX_HEIGHT`) or Audio only (48, 128, 256, 320 kbps). Custom filenames are fully supported.
+- **Playlist cap:** The number of items fetched from a playlist is capped and configurable via `MAX_PLAYLIST_ITEMS`.
 - **Playlist support:** Paste a playlist URL to automatically probe and list all videos. You can download individual videos row-by-row, or click "Download all (.zip)" to batch download the entire playlist into a single `.zip` file.
 - **Live progress indicators:** The UI polls the backend API to display real-time ETA and status text. An animated SVG spinner is shown during processing and seamlessly morphs into a checkmark upon completion.
 - **Instant cancellation:** Active downloads can be interrupted at any time using the "Cancel" button. This works for single videos, individual playlist rows, and batch zip jobs. Cancelling automatically cleans up any partially downloaded temporary files.
@@ -109,7 +111,7 @@ Then visit `http://<your-computer's-LAN-IP>:8000` from another device on the sam
 **Update yt-dlp** (run this whenever downloads start failing — YouTube changes things often):
 
 ```bash
-pip install -U yt-dlp
+pip install -U "yt-dlp[default]"
 ```
 
 _(Run this with the virtual environment activated.)_
@@ -124,16 +126,39 @@ pip install -r requirements.txt --upgrade
 
 ## Deployment
 
-Puller is built with a FastAPI backend because `yt-dlp` and `ffmpeg` require a full Python environment and system binaries.
+Puller ships a `Dockerfile` — the recommended way to run it anywhere.
 
-**This app cannot be hosted on static providers like GitHub Pages or Vercel.** To deploy it publicly, you must use a Docker-based or VPS environment (such as Render, Fly.io, Railway, or a DigitalOcean droplet) that allows background threading, system-level ffmpeg installation, and local file storage for temporary processing.
+### Docker (local)
+
+```bash
+docker build -t puller .
+docker run -p 8000:8000 puller
+```
+
+Open **http://localhost:8000**.
+
+### Render (one-click)
+
+1. Push the repo to GitHub.
+2. In [Render](https://render.com), create a new **Web Service** → connect the repo → set **Runtime** to _Docker_.
+3. Set the environment variables below and deploy. Render injects `$PORT` automatically.
+
+> **Note:** Static providers (GitHub Pages, Vercel, Netlify) will **not** work — Puller needs background threads, ffmpeg binaries, and writable temp storage.
+
+### Environment variables
+
+| Variable             | Default | Meaning                                                           |
+| -------------------- | ------- | ----------------------------------------------------------------- |
+| `PORT`               | `8000`  | Port the server listens on (injected by Render/Fly automatically) |
+| `MAX_HEIGHT`         | `1080`  | Maximum video height in pixels (e.g. `720`, `1080`)               |
+| `MAX_PLAYLIST_ITEMS` | `50`    | Maximum number of playlist entries fetched per request            |
 
 ---
 
 ## Notes & limitations
 
-- **This runs locally, for personal use.** Downloading video is subject to YouTube's Terms of Service and copyright law in your country — that's on you to respect.
-- **4K/HDR downloads are slow and large.** That's real transcoding/muxing work from ffmpeg, not a bug.
+- **Personal and self-hosted use.** Puller can run locally or be self-deployed — downloading video is still subject to YouTube's Terms of Service and copyright law in your country; that's on you to respect.
+- **High-resolution downloads are slow and large.** At the default 1080p cap that's real muxing work from ffmpeg, not a bug. Raise `MAX_HEIGHT` only if your server can handle the extra load.
 - **Custom filenames are sanitized.** If you enter a custom name, invalid path characters will automatically be stripped before saving.
 
 ---
